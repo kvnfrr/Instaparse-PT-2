@@ -8,6 +8,7 @@
 import UIKit
 import Alamofire
 import AlamofireImage
+import ParseSwift
 
 class PostCell: UITableViewCell {
 
@@ -16,13 +17,21 @@ class PostCell: UITableViewCell {
     @IBOutlet private weak var captionLabel: UILabel!
     @IBOutlet private weak var dateLabel: UILabel!
     @IBOutlet private weak var locationLabel: UILabel!
+    @IBOutlet private weak var commentsLabel: UILabel!
+    @IBOutlet private weak var commentTextField: UITextField!
+    @IBOutlet private weak var commentButton: UIButton!
 
     // Blur view to blur out "hidden" posts
     @IBOutlet private weak var blurView: UIVisualEffectView!
 
     private var imageDataRequest: DataRequest?
+    private var currentPost: Post?
+
+    var onCommentPosted: (() -> Void)?
 
     func configure(with post: Post) {
+        currentPost = post
+
         // Username
         if let user = post.user {
             usernameLabel.text = user.username
@@ -61,6 +70,19 @@ class PostCell: UITableViewCell {
             locationLabel.text = "No location"
         }
 
+        // Comments
+        if let comments = post.comments, !comments.isEmpty {
+            let commentText = comments.compactMap { comment in
+                guard let username = comment.user?.username,
+                      let text = comment.text else { return nil }
+                return "\(username): \(text)"
+            }.joined(separator: "\n")
+
+            commentsLabel.text = commentText
+        } else {
+            commentsLabel.text = "No comments yet"
+        }
+
         // Blur logic
         if let currentUser = User.current,
            let lastPostedDate = currentUser.lastPostedDate,
@@ -75,13 +97,39 @@ class PostCell: UITableViewCell {
         }
     }
 
+    @IBAction func onCommentButtonTapped(_ sender: UIButton) {
+        guard let post = currentPost,
+              let text = commentTextField.text,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        var comment = Comment()
+        comment.text = text
+        comment.user = User.current
+        comment.post = post
+
+        comment.save { [weak self] result in
+            switch result {
+            case .success:
+                DispatchQueue.main.async {
+                    self?.commentTextField.text = ""
+                    self?.onCommentPosted?()
+                }
+            case .failure(let error):
+                print("❌ Error saving comment: \(error.localizedDescription)")
+            }
+        }
+    }
+
     override func prepareForReuse() {
         super.prepareForReuse()
 
-        // Reset image view image.
         postImageView.image = nil
-
-        // Cancel image request.
         imageDataRequest?.cancel()
+
+        commentsLabel.text = nil
+        commentTextField.text = nil
+        currentPost = nil
     }
 }

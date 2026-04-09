@@ -28,4 +28,5 @@ struct Post: ParseObject {
     
     var latitude: Double?
     var longitude: Double?
+    var comments: [Comment]?
 }

@@ -6,8 +6,6 @@
 //
 
 import UIKit
-
-// TODO: P1 1 - Import Parse Swift
 import ParseSwift
 
 class FeedViewController: UIViewController {
@@ -17,7 +15,6 @@ class FeedViewController: UIViewController {
 
     private var posts = [Post]() {
         didSet {
-            // Reload table view data any time the posts variable gets updated.
             tableView.reloadData()
         }
     }
@@ -35,40 +32,51 @@ class FeedViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-
         queryPosts()
     }
 
     private func queryPosts(completion: (() -> Void)? = nil) {
-        // TODO: Pt 1 - Query Posts
-        // https://github.com/parse-community/Parse-Swift/blob/3d4bb13acd7496a49b259e541928ad493219d363/ParseSwift.playground/Pages/2%20-%20Finding%20Objects.xcplaygroundpage/Contents.swift#L66
-
-        // 1. Create a query to fetch Posts
-        // 2. Any properties that are Parse objects are stored by reference in Parse DB and as such need to explicitly use `include_:)` to be included in query results.
-        // 3. Sort the posts by descending order based on the created at date
-        // 4. TODO: Pt 2 - Only include results created yesterday onwards
         let yesterdayDate = Calendar.current.date(byAdding: .day, value: (-1), to: Date())!
-        // 5. TODO: Pt 2 - Limit max number of returned posts
 
-                           
         let query = Post.query()
             .include("user")
             .order([.descending("createdAt")])
             .where("createdAt" >= yesterdayDate)
             .limit(10)
 
-        // Find and return posts that meet query criteria (async)
         query.find { [weak self] result in
             switch result {
-            case .success(let posts):
-                self?.posts = posts
-                self?.tableView.reloadData()
+            case .success(let fetchedPosts):
+                self?.posts = fetchedPosts
+
+                for (index, post) in fetchedPosts.enumerated() {
+                    if let commentQuery = try? Comment.query()
+                        .where("post" == post)
+                        .include("user")
+                        .order([.ascending("createdAt")]) {
+
+                        commentQuery.find { [weak self] result in
+                            switch result {
+                            case .success(let comments):
+                                guard let self else { return }
+                                if index < self.posts.count {
+                                    self.posts[index].comments = comments
+                                }
+                                DispatchQueue.main.async {
+                                    self.tableView.reloadData()
+                                }
+
+                            case .failure(let error):
+                                print("❌ Error fetching comments: \(error.localizedDescription)")
+                            }
+                        }
+                    }
+                }
+
             case .failure(let error):
                 self?.showAlert(description: error.localizedDescription)
             }
 
-            // Call the completion handler (regardless of error or success, this will signal the query finished)
-            // This is used to tell the pull-to-refresh control to stop refresshing
             completion?()
         }
     }
@@ -85,7 +93,11 @@ class FeedViewController: UIViewController {
     }
 
     private func showConfirmLogoutAlert() {
-        let alertController = UIAlertController(title: "Log out of \(User.current?.username ?? "current account")?", message: nil, preferredStyle: .alert)
+        let alertController = UIAlertController(
+            title: "Log out of \(User.current?.username ?? "current account")?",
+            message: nil,
+            preferredStyle: .alert
+        )
         let logOutAction = UIAlertAction(title: "Log out", style: .destructive) { _ in
             NotificationCenter.default.post(name: Notification.Name("logout"), object: nil)
         }
@@ -105,7 +117,13 @@ extension FeedViewController: UITableViewDataSource {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: "PostCell", for: indexPath) as? PostCell else {
             return UITableViewCell()
         }
-        cell.configure(with: posts[indexPath.row])
+
+        let post = posts[indexPath.row]
+        cell.configure(with: post)
+        cell.onCommentPosted = { [weak self] in
+            self?.queryPosts()
+        }
+
         return cell
     }
 }
