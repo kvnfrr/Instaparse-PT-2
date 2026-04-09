@@ -4,7 +4,7 @@ Submitted by: **Kevin Ferrer**
 
 **Instaparse** is an app that allows users to capture and share real-time posts similar to BeReal, where users must upload their own photo before viewing others. Users can interact with posts through comments, and each post includes a timestamp and location.
 
-Time spent: **X** hours spent in total
+Time spent: **6** hours spent in total
 
 ## Required Features
 
