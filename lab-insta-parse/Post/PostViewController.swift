@@ -8,8 +8,12 @@
 import UIKit
 import PhotosUI
 import ParseSwift
+import CoreLocation
 
 class PostViewController: UIViewController {
+    
+    let locationManager = CLLocationManager()
+    var currentLocation: CLLocation?
 
     // MARK: Outlets
     @IBOutlet weak var shareButton: UIBarButtonItem!
@@ -20,6 +24,10 @@ class PostViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.delegate = self
+        locationManager.startUpdatingLocation()
     }
 
     @IBAction func onPickedImageTapped(_ sender: UIBarButtonItem) {
@@ -52,14 +60,16 @@ class PostViewController: UIViewController {
         // Set properties
         post.imageFile = imageFile
         post.caption = captionTextField.text
-
-        // Set the user as the current user
         post.user = User.current
+
+        // Attach current device location to post if available
+        if let location = currentLocation {
+            post.latitude = location.coordinate.latitude
+            post.longitude = location.coordinate.longitude
+        }
 
         // Save post (async)
         post.save { [weak self] result in
-
-            // Switch to the main thread for any UI updates
             DispatchQueue.main.async {
                 switch result {
                 case .success(let post):
@@ -105,14 +115,11 @@ class PostViewController: UIViewController {
     }
 
     @IBAction func onViewTapped(_ sender: Any) {
-        // Dismiss keyboard
         view.endEditing(true)
     }
-
 }
 
 extension PostViewController: PHPickerViewControllerDelegate {
-
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
 
@@ -128,18 +135,19 @@ extension PostViewController: PHPickerViewControllerDelegate {
             if let error = error {
                 self?.showAlert(description: error.localizedDescription)
                 return
-            } else {
-                DispatchQueue.main.async {
-                    self?.previewImageView.image = image
-                    self?.pickedImage = image
-                }
+            }
+
+            DispatchQueue.main.async {
+                self?.previewImageView.image = image
+                self?.pickedImage = image
             }
         }
     }
 }
 
 extension PostViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+    func imagePickerController(_ picker: UIImagePickerController,
+                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
 
         picker.dismiss(animated: true)
 
@@ -150,5 +158,11 @@ extension PostViewController: UIImagePickerControllerDelegate, UINavigationContr
 
         previewImageView.image = image
         pickedImage = image
+    }
+}
+
+extension PostViewController: CLLocationManagerDelegate {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        currentLocation = locations.last
     }
 }

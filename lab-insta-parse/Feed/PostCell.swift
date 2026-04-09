@@ -15,6 +15,7 @@ class PostCell: UITableViewCell {
     @IBOutlet private weak var postImageView: UIImageView!
     @IBOutlet private weak var captionLabel: UILabel!
     @IBOutlet private weak var dateLabel: UILabel!
+    @IBOutlet private weak var locationLabel: UILabel!
 
     // Blur view to blur out "hidden" posts
     @IBOutlet private weak var blurView: UIVisualEffectView!
@@ -22,26 +23,23 @@ class PostCell: UITableViewCell {
     private var imageDataRequest: DataRequest?
 
     func configure(with post: Post) {
-        // TODO: Pt 1 - Configure Post Cell
-
         // Username
         if let user = post.user {
             usernameLabel.text = user.username
+        } else {
+            usernameLabel.text = ""
         }
 
         // Image
         if let imageFile = post.imageFile,
            let imageUrl = imageFile.url {
 
-            // Use AlamofireImage helper to fetch remote image from URL
             imageDataRequest = AF.request(imageUrl).responseImage { [weak self] response in
                 switch response.result {
                 case .success(let image):
-                    // Set image view image with fetched image
                     self?.postImageView.image = image
                 case .failure(let error):
                     print("❌ Error fetching image: \(error.localizedDescription)")
-                    break
                 }
             }
         }
@@ -49,13 +47,21 @@ class PostCell: UITableViewCell {
         // Caption
         captionLabel.text = post.caption
 
-        // Date
+        // Date / Time
         if let date = post.createdAt {
             dateLabel.text = DateFormatter.postFormatter.string(from: date)
+        } else {
+            dateLabel.text = ""
         }
 
-        // TODO: Pt 2 - Show/hide blur view
+        // Location
+        if let latitude = post.latitude, let longitude = post.longitude {
+            locationLabel.text = "Lat: \(latitude), Lon: \(longitude)"
+        } else {
+            locationLabel.text = "No location"
+        }
 
+        // Blur logic
         if let currentUser = User.current,
            let lastPostedDate = currentUser.lastPostedDate,
            let postCreatedDate = post.createdAt,
@@ -63,20 +69,14 @@ class PostCell: UITableViewCell {
                                                            from: postCreatedDate,
                                                            to: lastPostedDate).hour {
 
-            // Show image if within 24 hours
             blurView.isHidden = abs(diffHours) < 24
-
         } else {
-            // If no data, keep it blurred
             blurView.isHidden = false
         }
-
-
     }
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        // TODO: Pt 1 - Cancel image data request
 
         // Reset image view image.
         postImageView.image = nil
