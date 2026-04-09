@@ -99,6 +99,17 @@ class PostViewController: UIViewController {
 
     @IBAction func onTakePhotoTapped(_ sender: Any) {
         // TODO: Pt 2 - Present camera
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            print("❌📷 Camera not available")
+            return
+        }
+
+        let imagePicker = UIImagePickerController()
+        imagePicker.sourceType = .camera
+        imagePicker.allowsEditing = true
+        imagePicker.delegate = self
+
+        present(imagePicker, animated: true)
 
 
     }
@@ -154,3 +165,18 @@ extension PostViewController: PHPickerViewControllerDelegate {
 }
 
 // TODO: Pt 2 - Add UIImagePickerControllerDelegate + UINavigationControllerDelegate
+
+extension PostViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+
+        picker.dismiss(animated: true)
+
+        guard let image = info[.editedImage] as? UIImage else {
+            print("❌📷 Unable to get image")
+            return
+        }
+
+        previewImageView.image = image
+        pickedImage = image
+    }
+}
