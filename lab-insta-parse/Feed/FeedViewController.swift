@@ -47,19 +47,22 @@ class FeedViewController: UIViewController {
         // 2. Any properties that are Parse objects are stored by reference in Parse DB and as such need to explicitly use `include_:)` to be included in query results.
         // 3. Sort the posts by descending order based on the created at date
         // 4. TODO: Pt 2 - Only include results created yesterday onwards
+        let yesterdayDate = Calendar.current.date(byAdding: .day, value: (-1), to: Date())!
         // 5. TODO: Pt 2 - Limit max number of returned posts
 
                            
         let query = Post.query()
             .include("user")
             .order([.descending("createdAt")])
+            .where("createdAt" >= yesterdayDate)
+            .limit(10)
 
         // Find and return posts that meet query criteria (async)
         query.find { [weak self] result in
             switch result {
             case .success(let posts):
-                // Update the local posts property with fetched posts
                 self?.posts = posts
+                self?.tableView.reloadData()
             case .failure(let error):
                 self?.showAlert(description: error.localizedDescription)
             }
